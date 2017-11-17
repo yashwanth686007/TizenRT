@@ -1,6 +1,6 @@
 ###########################################################################
 #
-# Copyright 2016 Samsung Electronics All Rights Reserved.
+# Copyright 2017 Samsung Electronics All Rights Reserved.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -15,11 +15,10 @@
 # language governing permissions and limitations under the License.
 #
 ###########################################################################
-
 ############################################################################
-# apps/examples/testcase/filesystem/Make.defs
+# crypto/Makefile
 #
-#   Copyright (C) 2014 Gregory Nutt. All rights reserved.
+#   Copyright (C) 2007, 2008, 2011-2014, 2016 Gregory Nutt. All rights reserved.
 #   Author: Gregory Nutt <gnutt@nuttx.org>
 #
 # Redistribution and use in source and binary forms, with or without
@@ -51,17 +50,65 @@
 #
 ############################################################################
 
-ifeq ($(CONFIG_EXAMPLES_TESTCASE_FILESYSTEM),y)
-CSRCS += fs_main.c
-ifeq ($(CONFIG_TC_FS_PROCFS),y)
-  CSRCS += tc_fs_procfs.c
-endif
-ifeq ($(CONFIG_TC_FS_SMART_SFS),y)
-  CSRCS += tc_fs_smart_sfs.c
+-include $(TOPDIR)/Make.defs
+
+CRYPTO_ASRCS =
+CRYPTO_CSRCS =
+
+ifeq ($(CONFIG_CRYPTO),y)
+
+# Basic
+
+CRYPTO_CSRCS += crypto.c testmngr.c
+
+# Sofware AES library
+
+ifeq ($(CONFIG_CRYPTO_SW_AES),y)
+  CRYPTO_CSRCS += aes.c
 endif
 
-# Include filesystem build support
+endif # CONFIG_CRYPTO
 
-DEPPATH += --dep-path le_tc/filesystem
-VPATH += :le_tc/filesystem
+DEPPATH = --dep-path .
+VPATH = .
+
+ASRCS = $(CRYPTO_ASRCS)
+AOBJS = $(ASRCS:.S=$(OBJEXT))
+
+CSRCS = $(CRYPTO_CSRCS)
+COBJS = $(CSRCS:.c=$(OBJEXT))
+
+SRCS = $(ASRCS) $(CSRCS)
+OBJS = $(AOBJS) $(COBJS)
+
+BIN = libcrypto$(LIBEXT)
+
+all: $(BIN)
+.PHONY: depend clean distclean
+
+$(AOBJS): %$(OBJEXT): %.S
+	$(call ASSEMBLE, $<, $@)
+
+$(COBJS): %$(OBJEXT): %.c
+	$(call COMPILE, $<, $@)
+
+$(BIN): $(OBJS)
+	$(call ARCHIVE, $@, $(OBJS))
+
+.depend: Makefile $(SRCS)
+ifeq ($(CONFIG_CRYPTO),y)
+	$(Q) $(MKDEP) --dep-path . "$(CC)" -- $(CFLAGS) -- $(SRCS) >Make.dep
 endif
+	$(Q) touch $@
+
+depend: .depend
+
+clean:
+	$(call DELFILE, $(BIN))
+	$(call CLEAN)
+
+distclean: clean
+	$(call DELFILE, Make.dep)
+	$(call DELFILE, .depend)
+
+-include Make.dep
